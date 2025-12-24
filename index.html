@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Login & Create Account</title>
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+        
+        body {
+            margin: 0;
+            height: 100vh;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            background: white;
+            width: 380px;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+        
+        h2 {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 7px 0;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        
+        .password-box {
+            position: relative;
+        }
+        
+        .password-box span {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            font-size: 13px;
+            color: #555;
+        }
+        
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border: none;
+            border-radius: 5px;
+            background: #2a5298;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #1e3c72;
+        }
+        
+        .switch {
+            text-align: center;
+            margin-top: 10px;
+        }
+        
+        .switch a {
+            color: #2a5298;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    
+    <div class="container">
+        
+        <!-- LOGIN -->
+        <div id="loginBox">
+            <h2>Login</h2>
+            
+            <input type="text" id="loginUser" placeholder="Username">
+            
+            <div class="password-box">
+                <input type="password" id="loginPass" placeholder="Password">
+                <span onclick="togglePass('loginPass')">Show</span>
+            </div>
+            
+            <button onclick="login()">Login</button>
+            
+            <div class="switch">
+                New user?
+                <a onclick="showRegister()">Create Account</a>
+            </div>
+        </div>
+        
+        <!-- REGISTER -->
+        <div id="registerBox" class="hidden">
+            <h2>Create Account</h2>
+            
+            <input type="text" id="fname" placeholder="First Name *">
+            <input type="text" id="mname" placeholder="Middle Name (optional)">
+            <input type="text" id="lname" placeholder="Last Name *">
+            <input type="email" id="email" placeholder="Email *">
+            <input type="text" id="phone" placeholder="Phone Number *">
+            <input type="text" id="regUser" placeholder="Username *">
+            
+            <div class="password-box">
+                <input type="password" id="regPass" placeholder="Password *">
+                <span onclick="togglePass('regPass')">Show</span>
+            </div>
+            
+            <button onclick="register()">Register</button>
+            
+            <div class="switch">
+                Already have an account?
+                <a onclick="showLogin()">Login</a>
+            </div>
+        </div>
+        
+    </div>
+    
+    <script>
+        function showRegister() {
+            document.getElementById("loginBox").classList.add("hidden");
+            document.getElementById("registerBox").classList.remove("hidden");
+        }
+        
+        function showLogin() {
+            document.getElementById("registerBox").classList.add("hidden");
+            document.getElementById("loginBox").classList.remove("hidden");
+        }
+        
+        function togglePass(id) {
+            let field = document.getElementById(id);
+            field.type = field.type === "password" ? "text" : "password";
+        }
+        
+        function register() {
+            let fname = document.getElementById("fname").value.trim();
+            let lname = document.getElementById("lname").value.trim();
+            let email = document.getElementById("email").value.trim();
+            let phone = document.getElementById("phone").value.trim();
+            let user = document.getElementById("regUser").value.trim();
+            let pass = document.getElementById("regPass").value.trim();
+            
+            if (fname === "" || lname === "" || email === "" || phone === "" || user === "" || pass === "") {
+                alert("Please fill all required fields");
+                return;
+            }
+            
+            if (!email.includes("@") || !email.includes(".")) {
+                alert("Invalid email format");
+                return;
+            }
+            
+            if (phone.length < 10 || isNaN(phone)) {
+                alert("Invalid phone number");
+                return;
+            }
+            
+            // Get existing users or empty array
+            let users = JSON.parse(localStorage.getItem("users")) || [];
+            
+            // Check if username already exists
+            if (users.some(u => u.username === user)) {
+                alert("Username already exists!");
+                return;
+            }
+            
+            // Add new user
+            users.push({
+                fname,
+                lname,
+                email,
+                phone,
+                username: user,
+                password: pass
+            });
+            
+            // Save back to localStorage
+            localStorage.setItem("users", JSON.stringify(users));
+            
+            alert("Account created successfully!");
+            showLogin();
+        }
+        
+        function login() {
+            let user = document.getElementById("loginUser").value.trim();
+            let pass = document.getElementById("loginPass").value.trim();
+            
+            let users = JSON.parse(localStorage.getItem("users")) || [];
+            
+            let found = users.find(u => u.username === user && u.password === pass);
+            
+            if (found) {
+                alert("Login successful!");
+                window.location.href = "college.html"; // redirect to project page
+            } else {
+                alert("Invalid username or password");
+            }
+        }
+    </script>
+    
+</body>
+
+</html>
