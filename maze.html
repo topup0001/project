@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Extreme Neon Runner</title>
+    <style>
+        :root {
+            --bg: #050508;
+            --panel: #11111d;
+            --accent: #00f2ff;
+            --player: #ffffff;
+            --wall: #1e2029;
+            --danger: #ff0055;
+            --btn-size: 68px;
+        }
+
+        * { touch-action: manipulation; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body { 
+            display: flex; justify-content: center; align-items: center; 
+            min-height: 100vh; margin: 0; background: var(--bg); 
+            font-family: 'Segoe UI', sans-serif; flex-direction: column; color: white;
+            overflow: hidden;
+        }
+
+        /* Screen Shake Animation */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px); }
+            20% { transform: translate(-3px, 0px); }
+            40% { transform: translate(3px, 2px); }
+            60% { transform: translate(-3px, 1px); }
+            80% { transform: translate(-1px, -1px); }
+            100% { transform: translate(0, 0); }
+        }
+        .shake-effect { animation: shake 0.2s cubic-bezier(.36,.07,.19,.97) both; }
+
+        .game-container {
+            width: 95vw; max-width: 400px; background: var(--panel); 
+            padding: 20px; border-radius: 24px; text-align: center;
+            border: 1px solid rgba(255,255,255,0.05);
+            box-shadow: 0 0 50px rgba(0,242,255,0.1);
+        }
+
+        #resultsScreen, #gameplay { display: none; }
+
+        h2 { font-size: 1.6rem; letter-spacing: 3px; color: var(--accent); text-transform: uppercase; margin: 0 0 15px 0; text-shadow: 0 0 10px var(--accent); }
+
+        select, button {
+            width: 100%; padding: 16px; border-radius: 14px; border: none;
+            background: #1c1c2e; color: white; cursor: pointer;
+            font-weight: bold; font-size: 1rem; margin: 8px 0; transition: 0.2s;
+        }
+
+        button:active { transform: scale(0.95); background: var(--accent); color: var(--bg); }
+        .btn-next { background: var(--accent); color: var(--bg); box-shadow: 0 0 20px rgba(0,242,255,0.4); }
+
+        #game-wrapper {
+            position: relative; margin: 15px auto; overflow: hidden; border-radius: 8px;
+            border: 2px solid var(--wall);
+        }
+
+        #game { position: relative; background: #000; }
+
+        .cell { position: absolute; transition: opacity 0.3s; }
+        .wall { background: var(--wall); border: 1px solid #2a2d3a; }
+        .player { 
+            background: var(--player); z-index: 100; border-radius: 50%; 
+            box-shadow: 0 0 20px var(--accent); transform: scale(0.7);
+            transition: left 0.1s ease-out, top 0.1s ease-out;
+        }
+        .exit { 
+            background: var(--accent); border-radius: 4px; z-index: 5;
+            box-shadow: 0 0 30px var(--accent); animation: pulse 1s infinite alternate;
+        }
+
+        /* Fog of War / Masking */
+        .hidden-cell { opacity: 0 !important; }
+
+        @keyframes pulse { from { opacity: 0.3; transform: scale(0.8); } to { opacity: 1; transform: scale(1.1); } }
+
+        #stats-bar { display: flex; justify-content: space-between; margin-bottom: 10px; font-family: monospace; }
+        #timerDisplay { color: var(--danger); font-size: 1.3rem; font-weight: bold; }
+
+        #controls { 
+            display: grid; grid-template-areas: ". up ." "left center right" ". down ."; 
+            gap: 15px; justify-content: center; margin-top: 20px;
+        }
+        
+        .btn-pad { 
+            width: var(--btn-size); height: var(--btn-size); 
+            background: rgba(255,255,255,0.03); color: white; 
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; 
+            font-size: 26px; display: flex; align-items: center; justify-content: center;
+        }
+
+        .stat-box { background: rgba(0,0,0,0.5); padding: 12px; border-radius: 12px; margin: 8px 0; border-left: 4px solid var(--accent); }
+    </style>
+</head>
+<body>
+
+    <div class="game-container" id="mainFrame">
+        <div id="levelSelect">
+            <h2>EXTREME RUNNER</h2>
+            <p id="unlockStatus" style="font-size: 0.8rem; color: #666;"></p>
+            <select id="levelDropdown"></select>
+            <button id="startBtn" class="btn-next">INITIATE MISSION</button>
+        </div>
+
+        <div id="resultsScreen">
+            <h2 id="resultTitle">SUCCESS</h2>
+            <div class="stat-box">
+                <span id="finalLevel" style="font-weight:bold; color:var(--accent)">Level 1</span>
+            </div>
+            <div class="stat-box">
+                Time: <span id="finalTime">0s</span> | Steps: <span id="finalSteps">0</span>
+            </div>
+            <button class="btn-next" id="nextLevelBtn">ADVANCE TO NEXT LEVEL</button>
+            <button id="backToMenuBtn" style="background:transparent; opacity:0.5;">ABORT TO MENU</button>
+        </div>
+
+        <div id="gameplay">
+            <div id="stats-bar">
+                <div id="timerDisplay">00:00</div>
+                <div id="movesDisplay" style="color: #aaa;">STEPS: 0</div>
+            </div>
+            <div id="game-wrapper">
+                <div id="game"></div>
+            </div>
+            <div id="controls">
+                <button class="btn-pad" style="grid-area: up" id="up">↑</button>
+                <button class="btn-pad" style="grid-area: left" id="left">←</button>
+                <button class="btn-pad" style="grid-area: down" id="down">↓</button>
+                <button class="btn-pad" style="grid-area: right" id="right">→</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cellSize = window.innerWidth < 400 ? 20 : 24; 
+        let unlockedLevel = parseInt(localStorage.getItem('mazeMaxUnlocked')) || 1;
+
+        function updateDropdown() {
+            const dropdown = document.getElementById('levelDropdown');
+            dropdown.innerHTML = '';
+            for (let i = 1; i <= 50; i++) {
+                let opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = i > unlockedLevel ? `Lvl ${i} [LOCKED]` : `Level ${i}`;
+                opt.disabled = i > unlockedLevel;
+                dropdown.appendChild(opt);
+            }
+            dropdown.value = unlockedLevel;
+            document.getElementById('unlockStatus').textContent = `${unlockedLevel}/50 MISSIONS COMPLETE`;
+        }
+
+        const ui = {
+            frame: document.getElementById('mainFrame'),
+            menu: document.getElementById('levelSelect'),
+            gameplay: document.getElementById('gameplay'),
+            results: document.getElementById('resultsScreen'),
+            game: document.getElementById('game'),
+            timer: document.getElementById('timerDisplay'),
+            moves: document.getElementById('movesDisplay'),
+            levelDrop: document.getElementById('levelDropdown')
+        };
+
+        let level, cols, rows, maze = [], player = { x: 0, y: 0 }, exit, timer, timeLeft, moves = 0;
+
+        function createMaze(lvl) {
+            const size = Math.min(10 + Math.floor(lvl / 2), 22);
+            cols = size; rows = size;
+            maze = Array.from({ length: rows }, () => Array(cols).fill(1));
+            
+            // Critical Path
+            let x = 0, y = 0; maze[y][x] = 0;
+            while (x < cols - 1 || y < rows - 1) {
+                if (x < cols - 1 && Math.random() > 0.5) x++;
+                else if (y < rows - 1) y++;
+                maze[y][x] = 0;
+            }
+
+            // High Wall Density for "Extreme" feel
+            const density = 0.60 - (lvl * 0.002); 
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (Math.random() > density) maze[r][c] = 0;
+                }
+            }
+            maze[0][0] = 0; maze[rows-1][cols-1] = 0; 
+            exit = { x: cols - 1, y: rows - 1 };
+        }
+
+        function drawMaze() {
+            ui.game.style.width = (cols * cellSize) + "px";
+            ui.game.style.height = (rows * cellSize) + "px";
+            ui.game.innerHTML = "";
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const div = document.createElement('div');
+                    div.id = `c-${c}-${r}`;
+                    div.className = "cell " + (maze[r][c] ? "wall" : "path");
+                    if (c === exit.x && r === exit.y) div.className += " exit";
+                    div.style.width = div.style.height = cellSize + "px";
+                    div.style.left = (c * cellSize) + "px";
+                    div.style.top = (r * cellSize) + "px";
+                    ui.game.appendChild(div);
+                }
+            }
+            const p = document.createElement('div');
+            p.id = "playerIcon"; p.className = "cell player";
+            p.style.width = p.style.height = cellSize + "px";
+            ui.game.appendChild(p);
+            updateVisibility();
+        }
+
+        // FOG OF WAR LOGIC
+        function updateVisibility() {
+            const viewDistance = Math.max(2, 6 - Math.floor(level / 5)); // Gets darker every 5 levels
+            const p = document.getElementById('playerIcon');
+            p.style.left = (player.x * cellSize) + "px";
+            p.style.top = (player.y * cellSize) + "px";
+
+            // Only update visibility if Level > 1
+            if (level < 2) return; 
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const cell = document.getElementById(`c-${c}-${r}`);
+                    const dist = Math.abs(player.x - c) + Math.abs(player.y - r);
+                    if (dist <= viewDistance) {
+                        cell.classList.remove('hidden-cell');
+                    } else {
+                        cell.classList.add('hidden-cell');
+                    }
+                }
+            }
+        }
+
+        function move(dx, dy) {
+            let nx = player.x + dx;
+            let ny = player.y + dy;
+            if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && maze[ny][nx] === 0) {
+                player.x = nx; player.y = ny;
+                moves++;
+                ui.moves.textContent = "STEPS: " + moves;
+                updateVisibility();
+                if (player.x === exit.x && player.y === exit.y) finish(true);
+            } else {
+                // Wall Hit Effect
+                ui.frame.classList.add('shake-effect');
+                setTimeout(() => ui.frame.classList.remove('shake-effect'), 200);
+            }
+        }
+
+        function start(lvl) {
+            level = parseInt(lvl);
+            moves = 0;
+            timeLeft = Math.max(10, 60 - (level * 2)); // Tighter time limits
+            player = { x: 0, y: 0 };
+            ui.menu.style.display = "none";
+            ui.results.style.display = "none";
+            ui.gameplay.style.display = "block";
+            createMaze(level);
+            drawMaze();
+            clearInterval(timer);
+            timer = setInterval(() => {
+                timeLeft--;
+                ui.timer.textContent = "00:" + (timeLeft < 10 ? "0"+timeLeft : timeLeft);
+                if (timeLeft <= 0) finish(false);
+            }, 1000);
+        }
+
+        function finish(won) {
+            clearInterval(timer);
+            ui.gameplay.style.display = "none";
+            ui.results.style.display = "block";
+            if (won) {
+                ui.results.querySelector('h2').textContent = "MISSION CLEAR";
+                document.getElementById('finalLevel').textContent = "Level " + level + " Mastered";
+                document.getElementById('finalTime').textContent = (60 - (level * 2) - timeLeft) + "s";
+                document.getElementById('finalSteps').textContent = moves;
+                if (level === unlockedLevel && unlockedLevel < 50) {
+                    unlockedLevel++;
+                    localStorage.setItem('mazeMaxUnlocked', unlockedLevel);
+                }
+            } else {
+                ui.results.querySelector('h2').textContent = "TERMINATED";
+                document.getElementById('finalLevel').textContent = "Level " + level + " Failed";
+                document.getElementById('finalTime').textContent = "---";
+            }
+        }
+
+        document.getElementById('startBtn').onclick = () => start(ui.levelDrop.value);
+        document.getElementById('nextLevelBtn').onclick = () => start(level + 1);
+        document.getElementById('backToMenuBtn').onclick = () => {
+            updateDropdown();
+            ui.results.style.display = "none";
+            ui.menu.style.display = "block";
+        };
+
+        document.getElementById('up').onclick = () => move(0, -1);
+        document.getElementById('down').onclick = () => move(0, 1);
+        document.getElementById('left').onclick = () => move(-1, 0);
+        document.getElementById('right').onclick = () => move(1, 0);
+
+        updateDropdown();
+    </script>
+</body>
+</html>

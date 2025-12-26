@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GAME HUB</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f2f2f2;
+            margin: 0;
+        }
+
+        header {
+            background-color: #0a3d62;
+            color: white;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            margin: 0;
+        }
+
+        nav a {
+            color: white;
+            margin: 0 12px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        nav a:hover {
+            text-decoration: underline;
+        }
+
+        .logout-btn {
+            background-color: #e74c3c;
+            border: none;
+            padding: 8px 15px;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .logout-btn:hover {
+            background-color: #c0392b;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            padding: 30px;
+        }
+
+        .game {
+            background: white;
+            width: 250px;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .game img {
+            width: 100%;
+            border-radius: 6px;
+        }
+
+        .game h2 {
+            margin: 10px 0;
+            font-size: 18px;
+        }
+
+        .price {
+            color: green;
+            font-size: 18px;
+            margin: 8px 0;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            font-size: 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        footer {
+            text-align: center;
+            padding: 10px;
+            background: #222;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div>
+        <h1>GAME  HUB</h1>
+        <nav>
+            <a href="file.html">Home</a>
+            <a href="about.html">About</a>
+        </nav>
+    </div>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+</header>
+
+
+<div class="container">
+    <div class="game">
+        <img src="maze.jpg" alt="">
+        <h2>MAZE</h2>
+      <a href="maze.html"><button>Play Now</button></a>
+    </div>
+    <div class="game">
+        <img src="snake.png" alt="">
+        <h2>Snake</h2>
+        <a href="snake.html"><button>Play Now</button></a>
+    </div>
+</div>
+
+<footer>
+    © 2025 Simple Shop
+</footer>
+<script>
+    function logout() {
+        localStorage.removeItem("loggedInUser");
+        window.location.href = "index.html";
+    }
+</script>
+</body>
+</html>

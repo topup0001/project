@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Retro Pixel Snake</title>
+  <style>
+    body {
+      margin: 0;
+      background: #0b1020;
+      font-family: monospace;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 420px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px;
+      background: #020617;
+      font-weight: 600;
+    }
+
+    canvas {
+      flex: 1;
+      background: #111;
+      touch-action: none;
+      image-rendering: pixelated;
+    }
+
+    button {
+      background: #1e293b;
+      border: none;
+      color: white;
+      padding: 10px;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+
+    footer {
+      display: flex;
+      gap: 6px;
+      padding: 8px;
+      background: #020617;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(2, 6, 23, .95);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+    }
+
+    .levels {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      width: 80%;
+    }
+
+    .levels button {
+      padding: 14px;
+      background: #0f172a;
+      color: white;
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+    }
+
+    .locked {
+      opacity: .4;
+    }
+
+    .selected {
+      border: 2px solid #facc15;
+    }
+
+  </style>
+</head>
+
+<body>
+
+  <div class="app">
+    <header>
+      <div>LEVEL <span id="lv">1</span></div>
+      <div>SCORE <span id="sc">0</span></div>
+      <div>GOAL <span id="goal">5</span></div>
+    </header>
+
+    <canvas id="c" width="400" height="400"></canvas>
+
+    <footer>
+      <button onclick="showLevels()">LEVELS</button>
+      <button onclick="fullscreen()">FULL</button>
+      <button onclick="restart()">RESTART</button>
+    </footer>
+
+    <div class="overlay" id="menu">
+      <h2>Select Level</h2>
+      <div id="selectedLevelText">Selected Level: 1</div>
+      <div class="levels" id="levelBtns"></div>
+      <button onclick="hideLevels()">CLOSE</button>
+    </div>
+
+    <div class="overlay" id="over">
+      <h2 id="overText">Game Over</h2>
+      <button onclick="restart()">PLAY AGAIN</button>
+    </div>
+  </div>
+
+  <audio id="eatSound" src="https://freesound.org/data/previews/256/256113_3263906-lq.mp3"></audio>
+  <audio id="powerSound" src="https://freesound.org/data/previews/170/170613_2437358-lq.mp3"></audio>
+  <audio id="hitSound" src="https://freesound.org/data/previews/41/41422_634166-lq.mp3"></audio>
+
+  <script>
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+    const S = 20,
+      T = 20;
+    let snake, dir, food, walls, score, level, speed, goal, run, last, shield, power, boss, slowTime;
+    let unlocked = JSON.parse(localStorage.getItem("unlocked") || "1");
+    let bestScores = JSON.parse(localStorage.getItem("bestScores") || "{}");
+
+    const eatSound = document.getElementById("eatSound");
+    const powerSound = document.getElementById("powerSound");
+    const hitSound = document.getElementById("hitSound");
+
+    const levelGoals = [5, 7, 9, 11, 13, 15, 18, 20, 22, 25];
+    const levelWalls = [
+      [],
+      [],
+      [...Array(12)].map((_, i) => ({ x: 10, y: i + 4 })),
+      [...Array(12)].map((_, i) => ({ x: i + 4, y: 10 })),
+      [...Array(8)].map((_, i) => ({ x: 5, y: i + 6 })).concat([...Array(8)].map((_, i) => ({ x: 14, y: i + 6 }))),
+      [],
+      [],
+      [],
+      [],
+      []
+    ];
+
+    let selectedLevel = 1;
+
+    function saveProgress() {
+      localStorage.setItem("unlocked", unlocked);
+      localStorage.setItem("bestScores", JSON.stringify(bestScores));
+    }
+
+    function spawn() {
+      let p;
+      do {
+        p = { x: Math.floor(Math.random() * T), y: Math.floor(Math.random() * T) };
+      } while (snake.some(s => s.x == p.x && s.y == p.y) || walls.some(w => w.x == p.x && w.y == p.y));
+      return p;
+    }
+
+    function startGame() {
+      level = selectedLevel;
+      score = 0;
+      goal = levelGoals[level - 1];
+      speed = 140 - level * 5;
+      shield = 0;
+      power = null;
+      slowTime = 1;
+      snake = [{ x: 3, y: 3 }];
+      dir = { x: 1, y: 0 };
+      walls = levelWalls[level - 1] || [];
+      food = spawn();
+      boss = (level % 5 == 0) ? { x: 10, y: 10, dx: 1 } : null;
+      run = true;
+      last = 0;
+      document.getElementById("goal").textContent = goal;
+      document.getElementById("over").style.display = "none";
+      hideLevels();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    function drawCell(x, y, color, shape = "square") {
+      ctx.fillStyle = color;
+      if (shape === "square") ctx.fillRect(x * S, y * S, S, S);
+      else {
+        ctx.beginPath();
+        ctx.arc(x * S + S / 2, y * S + S / 2, S / 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function update() {
+      const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+      if (boss) { boss.x += boss.dx * slowTime; if (boss.x <= 0 || boss.x >= T - 1) boss.dx *= -1; }
+      const hit = head.x < 0 || head.y < 0 || head.x >= T || head.y >= T ||
+        snake.some(s => s.x == head.x && s.y == head.y) ||
+        walls.some(w => w.x == head.x && w.y == head.y) ||
+        (boss && Math.round(boss.x) == head.x && boss.y == head.y);
+      if (hit) { run = false; hitSound.play(); navigator.vibrate(150); document.getElementById("over").style.display = "flex"; return; }
+
+      snake.unshift(head);
+
+      if (head.x == food.x && head.y == food.y) {
+        score++; eatSound.play(); navigator.vibrate(50); food = spawn();
+        if (Math.random() < 0.2) power = spawn();
+        if (Math.random() < 0.1) slowTime = 0.5;
+      } else snake.pop();
+
+      if (power && head.x == power.x && head.y == power.y) { shield++; powerSound.play(); power = null; navigator.vibrate(80); }
+
+      if (slowTime < 1) { slowTime += 0.01; if (slowTime > 1) slowTime = 1; }
+
+      if (score >= levelGoals[level - 1]) {
+        bestScores[level] = Math.max(bestScores[level] || 0, score);
+        if (level < 10) { level++; if (level > unlocked) { unlocked = level; saveProgress(); } startGame(); }
+        else { alert("🎉 You completed all levels!"); selectedLevel = 1; document.getElementById("menu").style.display = "flex"; }
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, 400, 400);
+      walls.forEach(w => drawCell(w.x, w.y, "#475569"));
+      if (boss) drawCell(Math.round(boss.x), boss.y, "#ff00aa");
+      drawCell(food.x, food.y, "#ef4444", "circle");
+      if (power) drawCell(power.x, power.y, "#3b82f6", "circle");
+      snake.forEach((s, i) => drawCell(s.x, s.y, i ? "#22c55e" : "#4ade80", "square"));
+      document.getElementById("lv").textContent = level;
+      document.getElementById("sc").textContent = score;
+      document.getElementById("goal").textContent = goal;
+    }
+
+    function loop(t) { if (!run) return; if (t - last > speed * slowTime) { update(); last = t; } draw(); requestAnimationFrame(loop); }
+
+    function change(x, y) { if (dir.x == -x && dir.y == -y) return; dir = { x, y }; }
+
+    document.addEventListener("keydown", e => {
+      if (e.key == "ArrowUp") change(0, -1);
+      if (e.key == "ArrowDown") change(0, 1);
+      if (e.key == "ArrowLeft") change(-1, 0);
+      if (e.key == "ArrowRight") change(1, 0);
+    });
+
+    // swipe
+    let sx, sy;
+    canvas.ontouchstart = e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }
+    canvas.ontouchend = e => {
+      const dx = e.changedTouches[0].clientX - sx;
+      const dy = e.changedTouches[0].clientY - sy;
+      Math.abs(dx) > Math.abs(dy) ? change(dx > 0 ? 1 : -1, 0) : change(0, dy > 0 ? 1 : -1);
+    };
+
+    function showLevels() {
+      const box = document.getElementById("levelBtns");
+      const selectedLevelText = document.getElementById("selectedLevelText");
+      box.innerHTML = "";
+
+      for (let i = 1; i <= 10; i++) {
+        let b = document.createElement("button");
+        b.textContent = "Level " + i;
+        if (i > unlocked) {
+          b.className = "locked"; b.disabled = true;
+        } else {
+          b.onclick = () => {
+            selectedLevel = i;
+            selectedLevelText.textContent = "Selected Level: " + i;
+            Array.from(box.children).forEach(btn => btn.classList.remove("selected"));
+            b.classList.add("selected");
+          }
+        }
+        box.appendChild(b);
+      }
+
+      // Start button
+      let startBtn = document.createElement("button");
+      startBtn.textContent = "START";
+      startBtn.onclick = startGame;
+      box.appendChild(startBtn);
+
+      document.getElementById("menu").style.display = "flex";
+    }
+
+    function hideLevels() { document.getElementById("menu").style.display = "none"; }
+    function restart() { startGame(); }
+    function fullscreen() { document.documentElement.requestFullscreen?.(); }
+
+  </script>
+</body>
+
+</html>
